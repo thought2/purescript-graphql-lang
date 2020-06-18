@@ -1,5 +1,6 @@
 module GraphQL.Language.AST where
 
+import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Eq (class Eq)
 import Data.Maybe (Maybe)
 
@@ -10,7 +11,7 @@ data Document
   = Document Definitions
 
 type Definitions
-  = Array Definition
+  = NonEmptyArray Definition
 
 data Definition
   = DefinitionOperation OperationDefinition
@@ -31,7 +32,7 @@ data OperationType
 --
 --
 type SelectionSet
-  = Array Selection
+  = NonEmptyArray Selection
 
 type SelectionSetOpt
   = Array Selection

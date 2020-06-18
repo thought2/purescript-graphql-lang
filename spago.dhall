@@ -1,12 +1,6 @@
-{-
-Welcome to a Spago project!
-You can edit this file as you like.
--}
-{ name = "my-project"
+{ name = "graphql-lang"
 , dependencies =
   [ "arrays"
-  , "console"
-  , "effect"
   , "maybe"
   , "numbers"
   , "psci-support"

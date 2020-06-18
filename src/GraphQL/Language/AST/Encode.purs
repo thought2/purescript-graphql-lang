@@ -1,15 +1,16 @@
 module GraphQL.Language.AST.Encode (printDocument) where
 
 import Prelude hiding (between)
-import GraphQL.Language.AST as AST
 import Data.Array (foldMap)
 import Data.Array as Array
+import Data.Array.NonEmpty (toArray)
 import Data.Int as Int
 import Data.Number.Format as Number
 import Data.String as String
+import GraphQL.Language.AST as AST
 
 printDocument :: AST.Document -> String
-printDocument (AST.Document xs) = newlines $ map printDefinition xs
+printDocument (AST.Document xs) = newlines $ map printDefinition $ toArray xs
 
 printDefinition :: AST.Definition -> String
 printDefinition = case _ of
@@ -24,7 +25,7 @@ printOperationDefinition = case _ of
       <> foldMap spaced name
       <> optEmptyArray (spaced <<< printVariableDefinitions) varDefs
       <> optEmptyArray (spaced <<< printDirectives) dirs
-      <> optEmptyArray (spaced <<< printSelectionSet) selSet
+      <> spaced (printSelectionSet selSet)
 
 printVariableDefinitions :: AST.VariableDefinitions -> String
 printVariableDefinitions = parens <<< commas <<< map printVariableDefinition
@@ -89,7 +90,7 @@ printSelection = case _ of
   AST.SelectionInlineFragment x -> printInlineFragment x
 
 printSelectionSet :: AST.SelectionSet -> String
-printSelectionSet x = braces $ commas $ map printSelection x
+printSelectionSet x = braces $ commas $ map printSelection $ toArray x
 
 printField :: AST.Field -> String
 printField (AST.Field alias' name args dirs selso) =
