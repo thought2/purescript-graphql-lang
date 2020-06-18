@@ -1,132 +1,138 @@
-module GraphQL.Language.AST.Encode where
+module GraphQL.Language.AST.Encode (printDocument) where
 
-import GraphQL.Language.AST (Alias(..), Argument(..), Arguments, Definition(..), Directive(..), Directives, Document(..), Field(..), FragmentDefinition(..), FragmentSpread(..), InlineFragment(..), InputType(..), Name, NonNullType(..), ObjectField(..), OperationDefinition(..), OperationType(..), Selection(..), SelectionSet, SelectionSetOpt, Value(..), Variable, VariableDefinition(..), VariableDefinitions)
-import Prelude (class Monoid, identity, map, mempty, ($), (<<<), (<>))
+import Prelude hiding (between)
+import GraphQL.Language.AST as AST
 import Data.Array (foldMap)
 import Data.Array as Array
 import Data.Int as Int
 import Data.Number.Format as Number
 import Data.String as String
 
-document :: Document -> String
-document (Document xs) = newlines $ map definition xs
+printDocument :: AST.Document -> String
+printDocument (AST.Document xs) = newlines $ map printDefinition xs
 
-definition :: Definition -> String
-definition = case _ of
-  DefinitionOperation x -> operationDefinition x
-  DefinitionFragment x -> fragmentDefinition x
+printDefinition :: AST.Definition -> String
+printDefinition = case _ of
+  AST.DefinitionOperation x -> printOperationDefinition x
+  AST.DefinitionFragment x -> printFragmentDefinition x
 
-operationDefinition :: OperationDefinition -> String
-operationDefinition = case _ of
-  OperationSelectionSet x -> selectionSet x
-  OperationDefinition type_ name varDefs dirs selSet ->
-    operationType type_
+printOperationDefinition :: AST.OperationDefinition -> String
+printOperationDefinition = case _ of
+  AST.OperationSelectionSet x -> printSelectionSet x
+  AST.OperationDefinition type_ name varDefs dirs selSet ->
+    printOperationType type_
       <> foldMap spaced name
-      <> optEmpty Array.null (spaced <<< variableDefinitions) varDefs
-      <> optEmpty Array.null (spaced <<< directives) dirs
-      <> optEmpty Array.null (spaced <<< selectionSet) selSet
+      <> optEmptyArray (spaced <<< printVariableDefinitions) varDefs
+      <> optEmptyArray (spaced <<< printDirectives) dirs
+      <> optEmptyArray (spaced <<< printSelectionSet) selSet
 
-variableDefinitions :: VariableDefinitions -> String
-variableDefinitions = parens <<< commas <<< map variableDefinition
+printVariableDefinitions :: AST.VariableDefinitions -> String
+printVariableDefinitions = parens <<< commas <<< map printVariableDefinition
 
-variableDefinition :: VariableDefinition -> String
-variableDefinition (VariableDefinition var inty def) =
-  variable var
+printVariableDefinition :: AST.VariableDefinition -> String
+printVariableDefinition (AST.VariableDefinition var inty def) =
+  printVariable var
     <> ":"
-    <> inputType inty
-    <> foldMap value def
+    <> printInputType inty
+    <> foldMap printValue def
 
-variable :: Variable -> String
-variable = name
+printVariable :: AST.Variable -> String
+printVariable = printName
 
-name :: Name -> String
-name = identity
+printName :: AST.Name -> String
+printName = identity
 
-inputType :: InputType -> String
-inputType = case _ of
-  TypeNamed x -> name x
-  TypeList x -> inputType x
-  TypeNonNull x -> nonNullType x
+printInputType :: AST.InputType -> String
+printInputType = case _ of
+  AST.TypeNamed x -> printName x
+  AST.TypeList x -> printInputType x
+  AST.TypeNonNull x -> printNonNullType x
 
-nonNullType :: NonNullType -> String
-nonNullType = case _ of
-  NonNullTypeNamed x -> name x
-  NonNullTypeList x -> inputType x
+printNonNullType :: AST.NonNullType -> String
+printNonNullType = case _ of
+  AST.NonNullTypeNamed x -> printName x
+  AST.NonNullTypeList x -> printInputType x
 
-value :: Value -> String
-value = case _ of
-  ValueVariable x -> variable x
-  ValueInt x -> Int.toStringAs Int.decimal x
-  ValueFloat x -> Number.toString x
-  ValueString x -> "\"" <> x <> "\""
-  ValueBoolean x -> case x of
-    true -> "true"
-    false -> "false"
-  ValueNull -> "null"
-  ValueEnum x -> name x
-  ValueList xs -> brackets $ commas $ map value xs
-  ValueObject xs -> braces $ commas $ map objectField xs
+printValue :: AST.Value -> String
+printValue = case _ of
+  AST.ValueVariable x -> printVariable x
+  AST.ValueInt x -> Int.toStringAs Int.decimal x
+  AST.ValueFloat x -> Number.toString x
+  AST.ValueString x -> "\"" <> x <> "\""
+  AST.ValueBoolean x -> printBoolean x
+  AST.ValueNull -> "null"
+  AST.ValueEnum x -> printName x
+  AST.ValueList xs -> brackets $ commas $ map printValue xs
+  AST.ValueObject xs -> braces $ commas $ map printObjectField xs
 
-objectField :: ObjectField -> String
-objectField (ObjectField n v) = name n <> ":" <> value v
+printBoolean :: Boolean -> String
+printBoolean = case _ of
+  true -> "true"
+  false -> "false"
 
-directives :: Directives -> String
-directives = spaces <<< map directive
+printObjectField :: AST.ObjectField -> String
+printObjectField (AST.ObjectField n v) = printName n <> ":" <> printValue v
 
-directive :: Directive -> String
-directive (Directive name args) = "@" <> name <> optEmpty Array.null arguments args
+printDirectives :: AST.Directives -> String
+printDirectives = spaces <<< map printDirective
 
-selection :: Selection -> String
-selection = case _ of
-  SelectionField x -> field x
-  SelectionFragmentSpread x -> fragmentSpread x
-  SelectionInlineFragment x -> inlineFragment x
-
-selectionSet :: SelectionSet -> String
-selectionSet x = braces $ commas $ map selection x
-
-field :: Field -> String
-field (Field alias' name args dirs selso) =
-  foldMap ((":" <> _) <<< alias) alias'
+printDirective :: AST.Directive -> String
+printDirective (AST.Directive name args) =
+  "@"
     <> name
-    <> optEmpty Array.null arguments args
-    <> optEmpty Array.null directives dirs
-    <> optEmpty Array.null selectionSetOpt selso
+    <> optEmptyArray printArguments args
 
-alias :: Alias -> String
-alias (Alias name') = name name'
+printSelection :: AST.Selection -> String
+printSelection = case _ of
+  AST.SelectionField x -> printField x
+  AST.SelectionFragmentSpread x -> printFragmentSpread x
+  AST.SelectionInlineFragment x -> printInlineFragment x
 
-arguments :: Arguments -> String
-arguments = parens <<< commas <<< map argument
+printSelectionSet :: AST.SelectionSet -> String
+printSelectionSet x = braces $ commas $ map printSelection x
 
-argument :: Argument -> String
-argument (Argument name v) = name <> ":" <> value v
+printField :: AST.Field -> String
+printField (AST.Field alias' name args dirs selso) =
+  foldMap ((":" <> _) <<< printAlias) alias'
+    <> name
+    <> optEmptyArray printArguments args
+    <> optEmptyArray printDirectives dirs
+    <> optEmptyArray printSelectionSetOpt selso
 
-selectionSetOpt :: SelectionSetOpt -> String
-selectionSetOpt x = braces $ commas $ map selection x
+printAlias :: AST.Alias -> String
+printAlias (AST.Alias name') = printName name'
 
-fragmentSpread :: FragmentSpread -> String
-fragmentSpread (FragmentSpread name ds) =
+printArguments :: AST.Arguments -> String
+printArguments = parens <<< commas <<< map printArgument
+
+printArgument :: AST.Argument -> String
+printArgument (AST.Argument name v) = name <> ":" <> printValue v
+
+printSelectionSetOpt :: AST.SelectionSetOpt -> String
+printSelectionSetOpt x = braces $ commas $ map printSelection x
+
+printFragmentSpread :: AST.FragmentSpread -> String
+printFragmentSpread (AST.FragmentSpread name ds) =
   "..."
     <> name
-    <> optEmpty Array.null directives ds
+    <> optEmptyArray printDirectives ds
 
-inlineFragment :: InlineFragment -> String
-inlineFragment (InlineFragment tc dirs sels) =
-  "... on " <> foldMap name tc
-    <> directives dirs
-    <> selectionSet sels
+printInlineFragment :: AST.InlineFragment -> String
+printInlineFragment (AST.InlineFragment tc dirs sels) =
+  "... on " <> foldMap printName tc
+    <> printDirectives dirs
+    <> printSelectionSet sels
 
-operationType :: OperationType -> String
-operationType = case _ of
-  Query -> "query"
-  Mutation -> "mutation"
+printOperationType :: AST.OperationType -> String
+printOperationType = case _ of
+  AST.Query -> "query"
+  AST.Mutation -> "mutation"
 
-fragmentDefinition :: FragmentDefinition -> String
-fragmentDefinition (FragmentDefinition name' tc dirs sels) =
+printFragmentDefinition :: AST.FragmentDefinition -> String
+printFragmentDefinition (AST.FragmentDefinition name' tc dirs sels) =
   "fragment " <> name' <> " on " <> tc
-    <> optEmpty Array.null directives dirs
-    <> selectionSet sels
+    <> optEmptyArray printDirectives dirs
+    <> printSelectionSet sels
 
 --  Internal
 spaced :: String -> String
@@ -158,3 +164,6 @@ commas = String.joinWith ","
 
 optEmpty :: forall a b. Monoid b => (a -> Boolean) -> (a -> b) -> a -> b
 optEmpty isEmpty f x = if isEmpty x then mempty else f x
+
+optEmptyArray :: forall a b. Monoid b => (Array a -> b) -> Array a -> b
+optEmptyArray = optEmpty Array.null
